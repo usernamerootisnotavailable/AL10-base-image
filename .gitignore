@@ -1,0 +1,28 @@
+# Build outputs
+.build/
+dist/
+packer_cache/
+*.qcow2
+*.qcow2.*
+*.raw
+*.iso
+*.log
+
+# Generated keys and local configuration
+*.key
+*.pem
+id_ed25519
+id_ed25519.pub
+config.local.env
+.env
+
+# Python and Node tooling
+.venv/
+.venv-*/
+__pycache__/
+node_modules/
+
+# Editors and operating systems
+.DS_Store
+.idea/
+.vscode/

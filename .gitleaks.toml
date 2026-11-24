@@ -1,0 +1,14 @@
+title = "AL10 base image"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Generated build, test, and tooling directories"
+paths = [
+  '''^\.build/''',
+  '''^dist/''',
+  '''^\.venv/''',
+  '''^\.venv-[^/]+/''',
+  '''^node_modules/''',
+]

@@ -1,0 +1,45 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lint-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Repository checks
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Packer
+        uses: hashicorp/setup-packer@v3
+        with:
+          version: "1.16.2"
+
+      - name: Install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          python3 -m venv .venv-lint
+          .venv-lint/bin/pip install --disable-pip-version-check yamllint==1.38.0
+          echo "$PWD/.venv-lint/bin" >> "$GITHUB_PATH"
+
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL \
+            "https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz" \
+            | tar -xz -C "$HOME/.local/bin" gitleaks
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Run lint
+        run: make lint

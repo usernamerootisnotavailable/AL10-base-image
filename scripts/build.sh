@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib.sh
+source "$SCRIPT_DIR/lib.sh"
+load_versions
+cd "$REPO_ROOT"
+
+BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+BUILD_GIT_SHA="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
+export BUILD_DATE BUILD_GIT_SHA
+
+PACKER_BIN="${PACKER_BIN:-packer}"
+need_cmd "$PACKER_BIN"
+need_cmd qemu-img
+need_cmd ssh-keygen
+need_cmd curl
+need_cmd sha256sum
+need_cmd python3
+
+require_var ALMA_CLOUD_IMAGE_URL
+require_var ALMA_CLOUD_IMAGE_SHA256
+require_var IMAGE_VERSION
+
+mkdir -p "$BUILD_DIR/base" "$BUILD_DIR/ssh" "$BUILD_DIR/packer-output" "$DIST_DIR"
+rm -rf "$BUILD_DIR/packer-output"
+mkdir -p "$BUILD_DIR/packer-output"
+
+qemu_accel
+detect_ovmf
+
+base_image="$BUILD_DIR/base/${ALMA_CLOUD_IMAGE_NAME}"
+
+if [[ -n "${BASE_IMAGE_FILE:-}" ]]; then
+  base_image="$(absolute_path "$BASE_IMAGE_FILE")"
+  log "Using local base image: $base_image"
+elif [[ -f "$base_image" && "$(sha256_file "$base_image")" == "$ALMA_CLOUD_IMAGE_SHA256" ]]; then
+  log "Using cached base image: $base_image"
+else
+  log "Downloading pinned base image"
+  curl --fail --location --retry 5 --retry-delay 5 --connect-timeout 30 \
+    --output "${base_image}.part" "$ALMA_CLOUD_IMAGE_URL"
+  verify_sha256 "${base_image}.part" "$ALMA_CLOUD_IMAGE_SHA256" "base image"
+  mv "${base_image}.part" "$base_image"
+fi
+
+verify_sha256 "$base_image" "$ALMA_CLOUD_IMAGE_SHA256" "base image"
+
+work_image="$BUILD_DIR/base/work.qcow2"
+rm -f "$work_image"
+cp --reflink=auto "$base_image" "$work_image" 2>/dev/null || cp "$base_image" "$work_image"
+qemu-img resize "$work_image" "$BUILD_DISK_SIZE"
+
+build_key="$BUILD_DIR/ssh/build_key"
+rm -f "$build_key" "${build_key}.pub"
+ssh-keygen -q -t ed25519 -N '' -C 'al10-base-build' -f "$build_key"
+chmod 600 "$build_key"
+
+ovmf_vars_copy="$BUILD_DIR/OVMF_VARS.fd"
+prepare_ovmf_vars "$ovmf_vars_copy"
+
+packer_vars=(
+  -var "base_image_path=file://$work_image"
+  -var "base_image_checksum=sha256:$ALMA_CLOUD_IMAGE_SHA256"
+  -var "base_image_sha256=$ALMA_CLOUD_IMAGE_SHA256"
+  -var "base_image_url=$ALMA_CLOUD_IMAGE_URL"
+  -var "image_version=$IMAGE_VERSION"
+  -var "build_git_sha=$BUILD_GIT_SHA"
+  -var "build_date=$BUILD_DATE"
+  -var "disk_size=$BUILD_DISK_SIZE"
+  -var "ssh_public_key=$(cat "${build_key}.pub")"
+  -var "ssh_private_key_file=$build_key"
+  -var "output_directory=$BUILD_DIR/packer-output"
+  -var "ovmf_code=$OVMF_CODE"
+  -var "ovmf_vars=$ovmf_vars_copy"
+  -var "accelerator=$QEMU_ACCEL"
+  -var "cpu_model=$QEMU_CPU"
+)
+
+log "Initializing Packer plugins"
+(cd packer && "$PACKER_BIN" init . >/dev/null)
+
+log "Validating Packer configuration"
+"$PACKER_BIN" validate "${packer_vars[@]}" packer
+
+log "Building image $IMAGE_VERSION"
+"$PACKER_BIN" build "${packer_vars[@]}" packer
+
+rm -f "$work_image"
+
+built_image="$(find "$BUILD_DIR/packer-output" -maxdepth 1 -type f -name '*.qcow2' -print -quit)"
+[[ -n "$built_image" ]] || die "Packer did not produce a qcow2 image"
+
+rm -f "$IMAGE_FILE" "${IMAGE_FILE}.sha256"
+mv "$built_image" "$IMAGE_FILE" 2>/dev/null || {
+  cp "$built_image" "$IMAGE_FILE"
+  rm -f "$built_image"
+}
+(
+  cd "$DIST_DIR"
+  sha256sum "$(basename "$IMAGE_FILE")" >"$(basename "$IMAGE_FILE").sha256"
+)
+
+cat >"$BUILD_DIR/build.env" <<EOF
+BUILD_DATE='${BUILD_DATE}'
+BUILD_GIT_SHA='${BUILD_GIT_SHA}'
+EOF
+
+scripts/write-manifest.sh
+
+log "Built: $IMAGE_FILE"
+log "SHA256: $(sha256_file "$IMAGE_FILE")"
+log "Version: $IMAGE_VERSION"
+log "Next: make test-qemu"

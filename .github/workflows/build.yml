@@ -1,0 +1,113 @@
+name: Build image
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build and first-boot test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Free runner disk space
+        run: |
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /usr/local/lib/android \
+            /opt/ghc \
+            /opt/hostedtoolcache/CodeQL \
+            /usr/local/share/boost \
+            /usr/local/share/powershell \
+            /usr/share/swift
+          sudo apt-get clean
+          df -h /
+
+      - name: Install QEMU and UEFI dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            cloud-image-utils \
+            ovmf \
+            qemu-system-x86 \
+            qemu-utils \
+            xorriso
+
+          if [ ! -e /dev/kvm ]; then
+            echo "::error::/dev/kvm is not available on this runner"
+            exit 1
+          fi
+          sudo chmod 666 /dev/kvm
+
+      - name: Set up Packer
+        uses: hashicorp/setup-packer@v3
+        with:
+          version: "1.16.2"
+
+      - name: Build image
+        run: make build
+
+      - name: First-boot test
+        run: make test-qemu
+
+      - name: Upload image artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: al10-base-image
+          path: |
+            dist/*.qcow2
+            dist/*.sha256
+            dist/*.json
+            dist/*.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload guest console log on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: guest-console-log
+          path: |
+            .build/test/console.log
+            .build/packer-output/console.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## AL10 base image"
+            echo ""
+            if [ -f dist/build-manifest.json ]; then
+              python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/build-manifest.json").read_text())
+          print(f"- **Version:** `{manifest['version']}`")
+          print(f"- **Artifact:** `{manifest['artifact']}`")
+          print(f"- **SHA256:** `{manifest['artifact_sha256']}`")
+          print(f"- **Size:** {manifest['artifact_size_bytes']} bytes")
+          print(f"- **Base image:** `{manifest['base_image_url']}`")
+          print(f"- **Build commit:** `{manifest['git_sha']}`")
+          PY
+            else
+              echo "No build manifest produced."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,129 @@
+---
+- name: Verify the AL10 base image contract
+  hosts: all
+  become: true
+  gather_facts: true
+  vars:
+    contract_packages:
+      - chrony
+      - cloud-init
+      - cloud-utils-growpart
+      - firewalld
+      - openssh-server
+      - python3
+      - python3-dnf
+      - qemu-guest-agent
+      - sudo
+  tasks:
+    - name: Require AlmaLinux 10 on x86_64
+      ansible.builtin.assert:
+        that:
+          - ansible_distribution == "AlmaLinux"
+          - ansible_distribution_major_version | int == 10
+          - ansible_architecture == "x86_64"
+        fail_msg: Only AlmaLinux 10 x86_64 is supported.
+        quiet: true
+
+    - name: Require the ansible login
+      ansible.builtin.assert:
+        that:
+          - ansible_user_id == "ansible"
+        fail_msg: The contract must run as the ansible user.
+        quiet: true
+
+    - name: Require passwordless sudo
+      ansible.builtin.command:
+        argv:
+          - sudo
+          - -n
+          - "true"
+      changed_when: false
+      check_mode: false
+
+    - name: Require the baseline packages
+      ansible.builtin.dnf:
+        name: "{{ contract_packages }}"
+        state: present
+
+    - name: Read the SELinux mode
+      ansible.builtin.command:
+        argv:
+          - getenforce
+      register: contract_selinux
+      changed_when: false
+      check_mode: false
+
+    - name: Require enforcing SELinux
+      ansible.builtin.assert:
+        that:
+          - contract_selinux.stdout == "Enforcing"
+        fail_msg: SELinux is not enforcing.
+        quiet: true
+
+    - name: Collect service facts
+      ansible.builtin.service_facts:
+
+    - name: Require the baseline services
+      ansible.builtin.assert:
+        that:
+          - ansible_facts.services[item].state == "running"
+          - ansible_facts.services[item].status == "enabled"
+        fail_msg: "{{ item }} is not running and enabled."
+        quiet: true
+      loop:
+        - sshd.service
+        - firewalld.service
+        - chronyd.service
+        - qemu-guest-agent.service
+
+    - name: Wait for cloud-init to finish
+      ansible.builtin.command:
+        argv:
+          - cloud-init
+          - status
+          - --wait
+      changed_when: false
+      check_mode: false
+
+    - name: Require usable Python and dnf
+      ansible.builtin.command:
+        argv:
+          - python3
+          - -c
+          - "import sys, dnf; raise SystemExit(0 if sys.version_info >= (3, 12) else 1)"
+      changed_when: false
+      check_mode: false
+
+    - name: Require the cloud-init default user
+      ansible.builtin.command:
+        argv:
+          - grep
+          - -A20
+          - "default_user:"
+          - /etc/cloud/cloud.cfg
+      register: contract_cloud_cfg
+      changed_when: false
+      check_mode: false
+
+    - name: Require ansible as the cloud-init default user
+      ansible.builtin.assert:
+        that:
+          - "'name: ansible' in contract_cloud_cfg.stdout"
+        fail_msg: cloud-init default_user.name is not ansible.
+        quiet: true
+
+    - name: Read the image version marker
+      ansible.builtin.command:
+        argv:
+          - cat
+          - /etc/al10-base-image
+      register: contract_image_info
+      changed_when: false
+      check_mode: false
+
+    - name: Require the image marker
+      ansible.builtin.assert:
+        that:
+          - "'VERSION=' in contract_image_info.stdout"
+        fail_msg: /etc/al10-base-image is missing or malformed.
+        quiet: true
