@@ -23,12 +23,28 @@ require_var ALMA_CLOUD_IMAGE_URL
 require_var ALMA_CLOUD_IMAGE_SHA256
 require_var IMAGE_VERSION
 
+on_error() {
+  local status=$?
+  printf 'ERROR: command failed with status %s at line %s: %s\n' \
+    "$status" "$LINENO" "$BASH_COMMAND" >&2
+}
+trap on_error ERR
+
 mkdir -p "$BUILD_DIR/base" "$BUILD_DIR/ssh" "$BUILD_DIR/packer-output" "$DIST_DIR"
 rm -rf "$BUILD_DIR/packer-output"
 mkdir -p "$BUILD_DIR/packer-output"
 
 qemu_accel
 detect_ovmf
+
+{
+  log "Build directory disk usage"
+  df -h "$BUILD_DIR" || true
+  log "Resource limits"
+  ulimit -a || true
+  log "Memory"
+  free -h || true
+} >&2
 
 base_image="$BUILD_DIR/base/${ALMA_CLOUD_IMAGE_NAME}"
 
@@ -38,11 +54,39 @@ if [[ -n "${BASE_IMAGE_FILE:-}" ]]; then
 elif [[ -f "$base_image" && "$(sha256_file "$base_image")" == "$ALMA_CLOUD_IMAGE_SHA256" ]]; then
   log "Using cached base image: $base_image"
 else
-  log "Downloading pinned base image"
-  curl --fail --location --retry 5 --retry-delay 5 --connect-timeout 30 \
-    --output "${base_image}.part" "$ALMA_CLOUD_IMAGE_URL"
-  verify_sha256 "${base_image}.part" "$ALMA_CLOUD_IMAGE_SHA256" "base image"
-  mv "${base_image}.part" "$base_image"
+  read -r -a image_urls <<<"${ALMA_CLOUD_IMAGE_URL} ${ALMA_CLOUD_IMAGE_URL_FALLBACKS:-}"
+  downloaded=0
+  for url in "${image_urls[@]}"; do
+    log "Downloading pinned base image from $url"
+    if curl \
+      --fail \
+      --location \
+      --no-progress-meter \
+      --show-error \
+      --verbose \
+      --http1.1 \
+      --retry 3 \
+      --retry-all-errors \
+      --retry-delay 5 \
+      --connect-timeout 30 \
+      --max-time 900 \
+      --output "${base_image}.part" \
+      --write-out 'HTTP %{http_code}, downloaded %{size_download} bytes\n' \
+      "$url"; then
+      if [[ "$(sha256_file "${base_image}.part")" == "$ALMA_CLOUD_IMAGE_SHA256" ]]; then
+        log "base image checksum verified"
+        mv "${base_image}.part" "$base_image"
+        downloaded=1
+        break
+      fi
+      warn "checksum mismatch from $url; trying the next source"
+      rm -f "${base_image}.part"
+    else
+      log "Download failed from $url; trying the next source"
+      rm -f "${base_image}.part"
+    fi
+  done
+  [[ "$downloaded" == "1" ]] || die "could not download the pinned base image from any configured source"
 fi
 
 verify_sha256 "$base_image" "$ALMA_CLOUD_IMAGE_SHA256" "base image"

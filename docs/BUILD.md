@@ -70,6 +70,9 @@ make test-qemu
 The build:
 
 1. Downloads the pinned AlmaLinux GenericCloud qcow2 into `.build/base/`.
+   It tries the canonical URL first and then the mirrors in
+   `ALMA_CLOUD_IMAGE_URL_FALLBACKS`; every source must match the pinned
+   SHA256.
 2. Verifies the SHA256 from `versions.env`.
 3. Resizes a work copy to `BUILD_DISK_SIZE` (16G).
 4. Generates an ephemeral build SSH key.
@@ -120,8 +123,8 @@ BASE_IMAGE_FILE=/srv/images/AlmaLinux-10-GenericCloud-10.3-20261116.0.x86_64.qco
 1. Find the new AlmaLinux GenericCloud x86_64 qcow2 and its SHA256 in the
    upstream `CHECKSUM` file.
 2. Update `ALMA_RELEASE`, `ALMA_IMAGE_DATE`, `ALMA_CLOUD_IMAGE_NAME`,
-   `ALMA_CLOUD_IMAGE_URL`, `ALMA_CLOUD_IMAGE_SHA256`, and `IMAGE_VERSION` in
-   `versions.env`.
+   `ALMA_CLOUD_IMAGE_URL`, `ALMA_CLOUD_IMAGE_URL_FALLBACKS`,
+   `ALMA_CLOUD_IMAGE_SHA256`, and `IMAGE_VERSION` in `versions.env`.
 3. Run `make build` and `make test-qemu`.
 4. Import a new template with a new VMID; do not overwrite the previous
    template.
@@ -155,3 +158,5 @@ run from a trusted machine.
 | Cloud-init status is not done | Inspect the console log and `journalctl -u cloud-init` inside the build VM. |
 | Disk full on CI | Re-run with the disk-space step; remove `.build` artifacts and avoid retaining multiple qcow2 files. |
 | Test VM does not reboot | Check the console log and QEMU process; the reboot test reuses the existing host key entry. |
+| Base image download fails | The build tries the canonical URL and configured mirrors. Check `build.log` and the URL/checksum pins. |
+| Build step ends at download with no error | Use the CI failure annotation; the build now uses silent curl with explicit error output, an ERR trap, and mirror fallback. |

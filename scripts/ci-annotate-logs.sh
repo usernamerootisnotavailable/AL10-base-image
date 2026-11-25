@@ -5,25 +5,37 @@ set -euo pipefail
 # a public repository show the useful failure tail without requiring access to
 # the private Actions log download endpoint.
 
-max_lines="${CI_ANNOTATION_MAX_LINES:-60}"
+max_lines="${CI_ANNOTATION_MAX_LINES:-80}"
 max_chars="${CI_ANNOTATION_MAX_CHARS:-6000}"
 
-sanitize() {
-  sed -e 's/\x1b\[[0-9;]*[A-Za-z]//g' \
-    -e 's/\r$//' \
-    -e 's/%/%25/g' \
-    | tail -n "$max_lines" \
-    | tr '\n' ' ' \
-    | cut -c1-"$max_chars"
+escape_annotation() {
+  tr '\n' ' ' | cut -c1-"$max_chars" | sed 's/%/%25/g'
 }
 
 found=0
 for log_file in "$@"; do
   [[ -f "$log_file" ]] || continue
   found=1
-  message="$(sanitize <"$log_file")"
-  [[ -n "$message" ]] || message="(log is empty)"
-  printf '::error title=Failure details: %s::%s\n' "$log_file" "$message"
+
+  cleaned="$(mktemp)"
+  trap 'rm -f "$cleaned"' EXIT
+  sed -e 's/\r/\n/g' -e 's/\x1b\[[0-9;]*[A-Za-z]//g' "$log_file" >"$cleaned"
+
+  error_lines="$(
+    grep -aiE 'error|fail|fatal|cannot|no such|not found|refused|timed out|traceback|curl:|make:|http/[0-9]' "$cleaned" \
+      | tail -n 30 || true
+  )"
+  if [[ -n "$error_lines" ]]; then
+    message="$(printf '%s\n' "$error_lines" | escape_annotation)"
+    printf '::error title=Error lines: %s::%s\n' "$log_file" "$message"
+  fi
+
+  tail_text="$(tail -n "$max_lines" "$cleaned" | escape_annotation)"
+  [[ -n "$tail_text" ]] || tail_text="(log is empty)"
+  printf '::error title=Failure tail: %s::%s\n' "$log_file" "$tail_text"
+
+  rm -f "$cleaned"
+  trap - EXIT
 done
 
 if [[ "$found" == "0" ]]; then
