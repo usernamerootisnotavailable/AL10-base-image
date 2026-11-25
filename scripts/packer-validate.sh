@@ -30,6 +30,7 @@ ssh-keygen -q -t ed25519 -N '' -C 'al10-base-validate' -f "$validation_dir/priva
   -var "build_date=2026-01-01T00:00:00Z" \
   -var "ssh_public_key=$(cat "$validation_dir/private_key.pub")" \
   -var "ssh_private_key_file=$validation_dir/private_key" \
+  -var "console_log_path=$validation_dir/console.log" \
   -var "output_directory=$validation_dir/output" \
   -var "ovmf_code=$validation_dir/OVMF_CODE.fd" \
   -var "ovmf_vars=$validation_dir/OVMF_VARS.fd" \

@@ -154,7 +154,7 @@ run from a trusted machine.
 |---|---|
 | `/dev/kvm is not writable` | KVM not exposed, or the user lacks permissions. Use a KVM host or `ALLOW_TCG=1` for a slow local build. |
 | `OVMF firmware not found` | Install the `ovmf`/`edk2-ovmf` package or set `OVMF_CODE` and `OVMF_VARS`. |
-| Packer cannot connect | The temporary seed did not create `ansible`, or cloud-init could not parse the seed. Check `.build/packer-output/console.log`. |
+| Packer cannot connect | The temporary seed did not create `ansible`, or cloud-init could not parse the seed. Check `.build/console.log`. |
 | Cloud-init status is not done | Inspect the console log and `journalctl -u cloud-init` inside the build VM. |
 | Disk full on CI | Re-run with the disk-space step; remove `.build` artifacts and avoid retaining multiple qcow2 files. |
 | Test VM does not reboot | Check the console log and QEMU process; the reboot test reuses the existing host key entry. |

@@ -78,6 +78,11 @@ variable "output_directory" {
   description = "Packer output directory."
 }
 
+variable "console_log_path" {
+  type        = string
+  description = "Guest serial console log path."
+}
+
 variable "build_hostname" {
   type        = string
   default     = "al10-base-build"
@@ -172,7 +177,7 @@ source "qemu" "al10" {
   }
 
   qemuargs = [
-    ["-serial", "file:${var.output_directory}/console.log"],
+    ["-serial", "file:${var.console_log_path}"],
     ["-device", "virtio-serial-pci"],
     ["-chardev", "null,id=qga0"],
     ["-device", "virtserialport,chardev=qga0,name=org.qemu.guest_agent.0"],

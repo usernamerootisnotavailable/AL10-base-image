@@ -30,9 +30,11 @@ on_error() {
 }
 trap on_error ERR
 
-mkdir -p "$BUILD_DIR/base" "$BUILD_DIR/ssh" "$BUILD_DIR/packer-output" "$DIST_DIR"
-rm -rf "$BUILD_DIR/packer-output"
-mkdir -p "$BUILD_DIR/packer-output"
+mkdir -p "$BUILD_DIR/base" "$BUILD_DIR/ssh" "$DIST_DIR"
+# Packer requires its output directory not to exist. It creates the directory
+# itself after validation, so never pre-create either path here.
+rm -rf "$BUILD_DIR/packer-output" "$BUILD_DIR/validate-output"
+rm -f "$BUILD_DIR/console.log"
 
 qemu_accel
 detect_ovmf
@@ -115,21 +117,31 @@ packer_vars=(
   -var "disk_size=$BUILD_DISK_SIZE"
   -var "ssh_public_key=$(cat "${build_key}.pub")"
   -var "ssh_private_key_file=$build_key"
-  -var "output_directory=$BUILD_DIR/packer-output"
+  -var "console_log_path=$BUILD_DIR/console.log"
   -var "ovmf_code=$OVMF_CODE"
   -var "ovmf_vars=$ovmf_vars_copy"
   -var "accelerator=$QEMU_ACCEL"
   -var "cpu_model=$QEMU_CPU"
 )
 
+validation_vars=(
+  "${packer_vars[@]}"
+  -var "output_directory=$BUILD_DIR/validate-output"
+)
+
+build_vars=(
+  "${packer_vars[@]}"
+  -var "output_directory=$BUILD_DIR/packer-output"
+)
+
 log "Initializing Packer plugins"
 (cd packer && "$PACKER_BIN" init . >/dev/null)
 
 log "Validating Packer configuration"
-"$PACKER_BIN" validate "${packer_vars[@]}" packer
+"$PACKER_BIN" validate "${validation_vars[@]}" packer
 
 log "Building image $IMAGE_VERSION"
-"$PACKER_BIN" build "${packer_vars[@]}" packer
+"$PACKER_BIN" build "${build_vars[@]}" packer
 
 rm -f "$work_image"
 

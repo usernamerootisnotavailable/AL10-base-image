@@ -109,14 +109,14 @@ jobs:
           path: |
             build.log
             test.log
+            .build/console.log
             .build/test/console.log
-            .build/packer-output/console.log
           if-no-files-found: ignore
           retention-days: 7
 
       - name: Annotate failure
         if: failure()
-        run: scripts/ci-annotate-logs.sh build.log test.log .build/packer-output/console.log .build/test/console.log
+        run: scripts/ci-annotate-logs.sh build.log test.log .build/console.log .build/test/console.log
 
       - name: Publish success annotation
         if: success()
