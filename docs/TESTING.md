@@ -29,7 +29,9 @@ make test-qemu
 ```
 
 The Packer build itself proves that the image boots, accepts an SSH connection,
-can install packages, can reboot, and can power off cleanly.
+can install packages, can configure the guest, and can power off cleanly. The
+post-build QEMU test proves the image can boot the newly installed kernel and
+reboot persistently.
 
 The first-boot test then boots the **artifact** with:
 

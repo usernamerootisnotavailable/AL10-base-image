@@ -191,14 +191,6 @@ build {
   }
 
   provisioner "shell" {
-    execute_command   = "sudo -E bash -euxo pipefail '{{.Path}}'"
-    environment_vars  = local.provision_env
-    script            = "${local.provision_dir}/30-reboot.sh"
-    expect_disconnect = true
-    timeout           = "5m"
-  }
-
-  provisioner "shell" {
     execute_command  = "sudo -E bash -euxo pipefail '{{.Path}}'"
     environment_vars = local.provision_env
     timeout          = "30m"

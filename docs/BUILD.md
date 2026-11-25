@@ -80,7 +80,8 @@ The build:
 6. Boots under BIOS/SeaBIOS for provisioning, installs a removable UEFI
    fallback loader on the ESP, runs `dnf upgrade`, installs the baseline,
    configures users and services, records the package manifest, cleans
-   first-boot state, and shuts down.
+   first-boot state, and shuts down. The Packer build does not reboot the VM;
+   the post-build test boots the newly installed kernel and validates reboot.
 7. Copies the qcow2 into `dist/` with a checksum and manifest.
 
 `make test-qemu` boots the artifact under UEFI/OVMF with a fresh 20G overlay and

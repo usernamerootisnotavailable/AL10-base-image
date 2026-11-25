@@ -9,8 +9,8 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 : "${BUILD_DATE:?BUILD_DATE is required}"
 : "${BUILD_GIT_SHA:?BUILD_GIT_SHA is required}"
 
-# Wait for cloud-init after the reboot, then require a clean result. Log the
-# detailed status before failing so the Packer annotation shows why.
+# Wait for cloud-init on the provisioning boot, then require a clean result.
+# Log the detailed status before failing so the Packer annotation shows why.
 cloud_init_rc=0
 cloud-init status --wait || cloud_init_rc=$?
 cloud-init status --long || true
