@@ -16,7 +16,7 @@ variable "base_image_path" {
 
 variable "base_image_checksum" {
   type        = string
-  description = "Packer checksum string for the local base image."
+  description = "Packer checksum for the bootable work image."
 }
 
 variable "base_image_sha256" {

@@ -98,6 +98,12 @@ rm -f "$work_image"
 cp --reflink=auto "$base_image" "$work_image" 2>/dev/null || cp "$base_image" "$work_image"
 qemu-img resize "$work_image" "$BUILD_DISK_SIZE"
 
+# Packer verifies the file it actually boots. Resizing changes the qcow2
+# checksum, so use the work-image checksum rather than the upstream base
+# checksum here. The upstream checksum is still recorded in the manifest.
+work_sha256="$(sha256_file "$work_image")"
+log "Work image SHA256: $work_sha256"
+
 build_key="$BUILD_DIR/ssh/build_key"
 rm -f "$build_key" "${build_key}.pub"
 ssh-keygen -q -t ed25519 -N '' -C 'al10-base-build' -f "$build_key"
@@ -108,7 +114,7 @@ prepare_ovmf_vars "$ovmf_vars_copy"
 
 packer_vars=(
   -var "base_image_path=file://$work_image"
-  -var "base_image_checksum=sha256:$ALMA_CLOUD_IMAGE_SHA256"
+  -var "base_image_checksum=sha256:$work_sha256"
   -var "base_image_sha256=$ALMA_CLOUD_IMAGE_SHA256"
   -var "base_image_url=$ALMA_CLOUD_IMAGE_URL"
   -var "image_version=$IMAGE_VERSION"
