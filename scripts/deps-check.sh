@@ -29,8 +29,10 @@ fi
 qemu_accel
 detect_ovmf
 
-log "Packer: $("$PACKER_BIN" version | head -n 1)"
-log "QEMU: $(qemu-system-x86_64 --version | head -n 1)"
+packer_version="$("$PACKER_BIN" version)"
+qemu_version="$(qemu-system-x86_64 --version)"
+log "Packer: ${packer_version%%$'\n'*}"
+log "QEMU: ${qemu_version%%$'\n'*}"
 log "Accelerator: $QEMU_ACCEL"
 log "OVMF code: $OVMF_CODE"
 log "OVMF vars: $OVMF_VARS"

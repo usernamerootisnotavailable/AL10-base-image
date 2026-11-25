@@ -49,10 +49,30 @@ jobs:
             xorriso
 
           if [ ! -e /dev/kvm ]; then
-            echo "::error::/dev/kvm is not available on this runner"
+            echo "::error title=KVM unavailable::/dev/kvm is not available on this runner"
             exit 1
           fi
           sudo chmod 666 /dev/kvm
+
+          set +e
+          timeout 5 qemu-system-x86_64 \
+            -accel kvm \
+            -machine q35 \
+            -cpu host \
+            -m 128 \
+            -S \
+            -display none \
+            -nodefaults \
+            -monitor none \
+            -serial none >/tmp/kvm-preflight.log 2>&1
+          kvm_status=$?
+          set -e
+          if [ "$kvm_status" -ne 124 ]; then
+            cat /tmp/kvm-preflight.log
+            kvm_message="$(tr '\n' ' ' </tmp/kvm-preflight.log | cut -c1-1500)"
+            echo "::error title=KVM preflight failed::QEMU could not use KVM acceleration (exit $kvm_status): ${kvm_message}"
+            exit 1
+          fi
 
       - name: Set up Packer
         uses: hashicorp/setup-packer@v3
@@ -60,10 +80,14 @@ jobs:
           version: "1.16.2"
 
       - name: Build image
-        run: make build
+        run: |
+          set -o pipefail
+          make build 2>&1 | tee build.log
 
       - name: First-boot test
-        run: make test-qemu
+        run: |
+          set -o pipefail
+          make test-qemu 2>&1 | tee test.log
 
       - name: Upload image artifacts
         uses: actions/upload-artifact@v7
@@ -77,16 +101,37 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload guest console log on failure
+      - name: Upload build and guest logs on failure
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: guest-console-log
+          name: failure-logs
           path: |
+            build.log
+            test.log
             .build/test/console.log
             .build/packer-output/console.log
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Annotate failure
+        if: failure()
+        run: scripts/ci-annotate-logs.sh build.log test.log .build/packer-output/console.log .build/test/console.log
+
+      - name: Publish success annotation
+        if: success()
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          manifest = json.loads(Path("dist/build-manifest.json").read_text())
+          print(
+              "::notice title=AL10 base image built::"
+              f"Version {manifest['version']}; SHA256 {manifest['artifact_sha256']}; "
+              f"{manifest['artifact_size_bytes']} bytes"
+          )
+          PY
 
       - name: Write job summary
         if: always()

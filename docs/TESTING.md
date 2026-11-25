@@ -125,6 +125,13 @@ fails clearly if KVM is unavailable instead of silently using slow emulation.
 CI does not import into Proxmox and does not receive Proxmox credentials. Run the
 Proxmox smoke test from a trusted machine.
 
+The workflow emits GitHub check annotations for every failure, including a
+sanitized tail of `build.log`, `test.log`, and the QEMU console logs, so a
+public repository can show the relevant error without downloading the
+authenticated Actions log archive. A successful build emits a public notice with
+the image version and SHA256. The workflow also runs a real KVM preflight before
+Packer starts.
+
 ## What is not tested here
 
 - Real DHCP broadcast behavior and VLANs
