@@ -10,7 +10,7 @@ does not do. Downstream repositories may rely on this contract.
 | Distribution | AlmaLinux 10 |
 | Architecture | x86_64 |
 | Base variant | GenericCloud, XFS root |
-| Firmware | Boots under UEFI/OVMF and BIOS |
+| Firmware | Boots under UEFI/OVMF and BIOS; the ESP contains `/EFI/BOOT/BOOTX64.EFI` so OVMF does not need a pre-registered NVRAM boot entry |
 | Disk | 16G virtual image; root grows on first boot after clone resize |
 | Time | `chronyd` installed and enabled; default AlmaLinux time sources |
 | Init | systemd |

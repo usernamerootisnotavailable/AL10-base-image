@@ -58,6 +58,10 @@ pass "required services"
 [[ "$(getenforce)" == "Enforcing" ]] || fail "SELinux is not Enforcing"
 pass "SELinux enforcing"
 
+[[ -d /sys/firmware/efi ]] || fail "guest did not boot via UEFI"
+[[ -f /boot/efi/EFI/BOOT/BOOTX64.EFI ]] || fail "UEFI removable fallback loader is missing"
+pass "UEFI fallback bootloader"
+
 zone="$(firewall-cmd --get-default-zone)"
 [[ "$zone" == "public" ]] || fail "firewalld default zone is $zone"
 services="$(firewall-cmd --zone=public --list-services)"

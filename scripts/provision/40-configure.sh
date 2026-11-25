@@ -129,6 +129,36 @@ systemctl enable \
 
 systemctl set-default multi-user.target
 
+# OVMF has no NVRAM boot entry in a fresh Proxmox template. Install the
+# removable-media fallback loader so firmware can boot the ESP without a
+# pre-registered efibootmgr entry.
+findmnt -rn /boot/efi >/dev/null || {
+  echo "/boot/efi is not mounted" >&2
+  exit 1
+}
+efi_source=""
+for candidate in /boot/efi/EFI/almalinux /boot/efi/EFI/redhat /boot/efi/EFI/centos; do
+  if [[ -d "$candidate" ]]; then
+    efi_source="$candidate"
+    break
+  fi
+done
+[[ -n "$efi_source" ]] || {
+  echo "no UEFI bootloader directory found under /boot/efi/EFI" >&2
+  exit 1
+}
+install -d -m 0755 /boot/efi/EFI/BOOT
+cp -a "$efi_source"/. /boot/efi/EFI/BOOT/
+if [[ -f /boot/efi/EFI/BOOT/shimx64.efi ]]; then
+  cp -f /boot/efi/EFI/BOOT/shimx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI
+elif [[ -f /boot/efi/EFI/BOOT/grubx64.efi ]]; then
+  cp -f /boot/efi/EFI/BOOT/grubx64.efi /boot/efi/EFI/BOOT/BOOTX64.EFI
+else
+  echo "no shimx64.efi or grubx64.efi found in the ESP" >&2
+  exit 1
+fi
+sync
+
 python3 - <<'PY'
 import sys
 

@@ -17,9 +17,6 @@ rm -rf "$validation_dir"
 mkdir -p "$validation_dir"
 need_cmd ssh-keygen
 ssh-keygen -q -t ed25519 -N '' -C 'al10-base-validate' -f "$validation_dir/private_key"
-: >"$validation_dir/OVMF_CODE.fd"
-: >"$validation_dir/OVMF_VARS.fd"
-
 "$PACKER_BIN" validate \
   -var "base_image_path=/nonexistent/base.qcow2" \
   -var "base_image_checksum=sha256:0000000000000000000000000000000000000000000000000000000000000000" \
@@ -32,6 +29,4 @@ ssh-keygen -q -t ed25519 -N '' -C 'al10-base-validate' -f "$validation_dir/priva
   -var "ssh_private_key_file=$validation_dir/private_key" \
   -var "console_log_path=$validation_dir/console.log" \
   -var "output_directory=$validation_dir/output" \
-  -var "ovmf_code=$validation_dir/OVMF_CODE.fd" \
-  -var "ovmf_vars=$validation_dir/OVMF_VARS.fd" \
   packer

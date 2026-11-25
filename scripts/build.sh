@@ -37,7 +37,6 @@ rm -rf "$BUILD_DIR/packer-output" "$BUILD_DIR/validate-output"
 rm -f "$BUILD_DIR/console.log"
 
 qemu_accel
-detect_ovmf
 
 {
   log "Build directory disk usage"
@@ -109,9 +108,6 @@ rm -f "$build_key" "${build_key}.pub"
 ssh-keygen -q -t ed25519 -N '' -C 'al10-base-build' -f "$build_key"
 chmod 600 "$build_key"
 
-ovmf_vars_copy="$BUILD_DIR/OVMF_VARS.fd"
-prepare_ovmf_vars "$ovmf_vars_copy"
-
 packer_vars=(
   -var "base_image_path=file://$work_image"
   -var "base_image_checksum=sha256:$work_sha256"
@@ -124,8 +120,6 @@ packer_vars=(
   -var "ssh_public_key=$(cat "${build_key}.pub")"
   -var "ssh_private_key_file=$build_key"
   -var "console_log_path=$BUILD_DIR/console.log"
-  -var "ovmf_code=$OVMF_CODE"
-  -var "ovmf_vars=$ovmf_vars_copy"
   -var "accelerator=$QEMU_ACCEL"
   -var "cpu_model=$QEMU_CPU"
 )

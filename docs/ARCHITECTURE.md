@@ -63,7 +63,7 @@ access.
 |---|---|---|
 | Base image | Official AlmaLinux GenericCloud qcow2 | Fast, reproducible builds with AlmaLinux-maintained drivers and cloud-init |
 | Build tool | Packer + QEMU/KVM | Boot-time provisioning and a testable artifact before Proxmox sees it |
-| Firmware | UEFI/OVMF, Secure Boot off initially | Matches a UEFI-standardized Proxmox environment without adding Secure Boot variables to the first template |
+| Firmware | UEFI/OVMF, Secure Boot off initially | Matches a UEFI-standardized Proxmox environment without adding Secure Boot variables to the first template. Packer provisions under BIOS and installs the ESP removable fallback loader used by OVMF. |
 | Filesystem | XFS | Matches the default AlmaLinux GenericCloud image and downstream enterprise Linux expectations |
 | Disk | 16G virtual | Small template; clones are resized before first boot when services need more space |
 | Bootstrap account | `ansible`, NOPASSWD sudo | Required by both downstream repositories and their development harnesses |

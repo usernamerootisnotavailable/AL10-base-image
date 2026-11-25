@@ -23,7 +23,7 @@ image's contract.
 | Base build | 2026-11-16 |
 | Base SHA256 | `845d3a4e41fde973bdbf9763b62a88538c1a1fadc2332a89f6ea01e2c17c78ee` |
 | Virtual disk | 16G, grown by cloud-init after clone resize |
-| Firmware | UEFI/OVMF, Secure Boot off |
+| Firmware | UEFI/OVMF, Secure Boot off; removable fallback loader installed |
 | Proxmox defaults | VMID 9000, `vmbr0`, `ZFS-ZR2-Enc`, 2 vCPU, 2G RAM |
 
 The default Proxmox storage is `ZFS-ZR2-Enc`. That name is valid for a PVE

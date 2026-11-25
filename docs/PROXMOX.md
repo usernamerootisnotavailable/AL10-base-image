@@ -132,7 +132,9 @@ Proxmox only needs to inject the key and optional network settings.
 
 The template uses OVMF. Secure Boot is disabled by setting
 `pre-enrolled-keys=0`. This avoids a first-build dependency on Secure Boot
-variables while preserving the UEFI boot path.
+variables while preserving the UEFI boot path. The image includes the removable
+ESP fallback `/EFI/BOOT/BOOTX64.EFI`, so a fresh OVMF NVRAM store does not need
+a manually created boot entry.
 
 To enable Secure Boot later, create a new template with
 `TEMPLATE_SECURE_BOOT=1` and test the downstream stack. AlmaLinux supports

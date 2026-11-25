@@ -77,12 +77,15 @@ The build:
 3. Resizes a work copy to `BUILD_DISK_SIZE` (16G).
 4. Generates an ephemeral build SSH key.
 5. Boots the qcow2 under QEMU/KVM with UEFI and a temporary NoCloud seed.
-6. Runs `dnf upgrade`, installs the baseline, configures users and services,
-   records the package manifest, cleans first-boot state, and shuts down.
+6. Boots under BIOS/SeaBIOS for provisioning, installs a removable UEFI
+   fallback loader on the ESP, runs `dnf upgrade`, installs the baseline,
+   configures users and services, records the package manifest, cleans
+   first-boot state, and shuts down.
 7. Copies the qcow2 into `dist/` with a checksum and manifest.
 
-`make test-qemu` boots the artifact with a fresh 20G overlay and a new cloud-init
-seed, verifies the contract, reboots it, and verifies persistence.
+`make test-qemu` boots the artifact under UEFI/OVMF with a fresh 20G overlay and
+a new cloud-init seed, verifies the contract (including the UEFI fallback
+loader), reboots it, and verifies persistence.
 
 ## Outputs
 

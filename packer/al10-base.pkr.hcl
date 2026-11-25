@@ -89,16 +89,6 @@ variable "build_hostname" {
   description = "Hostname used only during the build."
 }
 
-variable "ovmf_code" {
-  type        = string
-  description = "OVMF code firmware path."
-}
-
-variable "ovmf_vars" {
-  type        = string
-  description = "Writable copy of the OVMF vars firmware."
-}
-
 variable "accelerator" {
   type        = string
   default     = "kvm"
@@ -151,10 +141,9 @@ source "qemu" "al10" {
   output_directory = var.output_directory
   vm_name          = "almalinux-10-base.qcow2"
 
-  efi_boot          = true
-  efi_firmware_code = var.ovmf_code
-  efi_firmware_vars = var.ovmf_vars
-  efi_drop_efivars  = true
+  # Provision under BIOS/SeaBIOS. The configure step installs a removable UEFI
+  # fallback loader ($ESP/EFI/BOOT/BOOTX64.EFI) for Proxmox OVMF and the
+  # post-build UEFI first-boot test.
 
   ssh_username            = "ansible"
   ssh_private_key_file    = var.ssh_private_key_file
