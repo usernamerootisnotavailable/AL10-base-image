@@ -9,8 +9,15 @@ export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 : "${BUILD_DATE:?BUILD_DATE is required}"
 : "${BUILD_GIT_SHA:?BUILD_GIT_SHA is required}"
 
-# Wait for cloud-init after the reboot, then require a clean result.
-cloud-init status --wait
+# Wait for cloud-init after the reboot, then require a clean result. Log the
+# detailed status before failing so the Packer annotation shows why.
+cloud_init_rc=0
+cloud-init status --wait || cloud_init_rc=$?
+cloud-init status --long || true
+if [[ "$cloud_init_rc" -ne 0 ]]; then
+  echo "cloud-init status --wait returned $cloud_init_rc" >&2
+  exit 1
+fi
 cloud-init status --format=json | python3 -c '
 import json
 import sys
@@ -132,10 +139,15 @@ systemctl set-default multi-user.target
 # OVMF has no NVRAM boot entry in a fresh Proxmox template. Install the
 # removable-media fallback loader so firmware can boot the ESP without a
 # pre-registered efibootmgr entry.
-findmnt -rn /boot/efi >/dev/null || {
-  echo "/boot/efi is not mounted" >&2
-  exit 1
-}
+if ! findmnt -rn /boot/efi >/dev/null; then
+  efi_device="$(blkid -t TYPE=vfat -o device | awk 'NR == 1 { print; exit }')"
+  [[ -n "$efi_device" ]] || {
+    echo "/boot/efi is not mounted and no vfat ESP was found" >&2
+    exit 1
+  }
+  mkdir -p /boot/efi
+  mount "$efi_device" /boot/efi
+fi
 efi_source=""
 for candidate in /boot/efi/EFI/almalinux /boot/efi/EFI/redhat /boot/efi/EFI/centos; do
   if [[ -d "$candidate" ]]; then
@@ -143,6 +155,21 @@ for candidate in /boot/efi/EFI/almalinux /boot/efi/EFI/redhat /boot/efi/EFI/cent
     break
   fi
 done
+if [[ -z "$efi_source" ]]; then
+  echo "No UEFI bootloader in the ESP; installing the removable GRUB fallback"
+  dnf -y install grub2-efi-x64 shim-x64
+  grub2-install \
+    --target=x86_64-efi \
+    --efi-directory=/boot/efi \
+    --bootloader-id=almalinux \
+    --removable
+  for candidate in /boot/efi/EFI/almalinux /boot/efi/EFI/redhat /boot/efi/EFI/centos; do
+    if [[ -d "$candidate" ]]; then
+      efi_source="$candidate"
+      break
+    fi
+  done
+fi
 [[ -n "$efi_source" ]] || {
   echo "no UEFI bootloader directory found under /boot/efi/EFI" >&2
   exit 1

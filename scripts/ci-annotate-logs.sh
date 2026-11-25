@@ -9,7 +9,8 @@ max_lines="${CI_ANNOTATION_MAX_LINES:-80}"
 max_chars="${CI_ANNOTATION_MAX_CHARS:-6000}"
 
 escape_annotation() {
-  tr '\n' ' ' | cut -c1-"$max_chars" | sed 's/%/%25/g'
+  # Keep the end of the log: the failure is at the end, not the beginning.
+  tr '\n' ' ' | tail -c "$max_chars" | sed 's/%/%25/g'
 }
 
 found=0
