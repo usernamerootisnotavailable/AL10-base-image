@@ -122,16 +122,19 @@ locals {
 }
 
 source "qemu" "al10" {
-  iso_url          = var.base_image_path
-  iso_checksum     = var.base_image_checksum
-  disk_image       = true
-  accelerator      = var.accelerator
-  cpu_model        = var.cpu_model
-  machine_type     = "q35"
-  memory           = var.memory
-  cpus             = var.cpus
-  disk_size        = var.disk_size
-  disk_interface   = "virtio-scsi"
+  iso_url      = var.base_image_path
+  iso_checksum = var.base_image_checksum
+  disk_image   = true
+  accelerator  = var.accelerator
+  cpu_model    = var.cpu_model
+  machine_type = "q35"
+  memory       = var.memory
+  cpus         = var.cpus
+  disk_size    = var.disk_size
+  # Use virtio-blk for the BIOS provisioning boot. SeaBIOS and virtio-scsi
+  # have an unreliable boot path; the final Proxmox disk controller is
+  # independent of this build-time choice.
+  disk_interface   = "virtio"
   disk_cache       = "writeback"
   disk_discard     = "unmap"
   disk_compression = true
@@ -147,7 +150,7 @@ source "qemu" "al10" {
 
   ssh_username            = "ansible"
   ssh_private_key_file    = var.ssh_private_key_file
-  ssh_timeout             = "30m"
+  ssh_timeout             = "10m"
   ssh_handshake_attempts  = 60
   shutdown_command        = "sudo systemctl poweroff"
   shutdown_timeout        = "10m"
@@ -166,6 +169,7 @@ source "qemu" "al10" {
   }
 
   qemuargs = [
+    ["-boot", "order=c"],
     ["-serial", "file:${var.console_log_path}"],
     ["-device", "virtio-serial-pci"],
     ["-chardev", "null,id=qga0"],
