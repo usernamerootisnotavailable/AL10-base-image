@@ -6,7 +6,9 @@ set -euo pipefail
 # the private Actions log download endpoint.
 
 max_lines="${CI_ANNOTATION_MAX_LINES:-80}"
-max_chars="${CI_ANNOTATION_MAX_CHARS:-6000}"
+# GitHub truncates check annotations around 4 KiB. Stay below that so the end
+# of the message is not silently discarded.
+max_chars="${CI_ANNOTATION_MAX_CHARS:-3500}"
 
 escape_annotation() {
   # Keep the end of the log: the failure is at the end, not the beginning.
@@ -34,6 +36,11 @@ for log_file in "$@"; do
   tail_text="$(tail -n "$max_lines" "$cleaned" | escape_annotation)"
   [[ -n "$tail_text" ]] || tail_text="(log is empty)"
   printf '::error title=Failure tail: %s::%s\n' "$log_file" "$tail_text"
+
+  configure_text="$(sed -n '/40-configure\.sh/,$p' "$cleaned" | tail -n 60 | escape_annotation)"
+  if [[ -n "$configure_text" ]]; then
+    printf '::error title=40-configure tail: %s::%s\n' "$log_file" "$configure_text"
+  fi
 
   rm -f "$cleaned"
   trap - EXIT
