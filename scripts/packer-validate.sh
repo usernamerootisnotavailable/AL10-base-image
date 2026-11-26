@@ -17,6 +17,8 @@ rm -rf "$validation_dir"
 mkdir -p "$validation_dir"
 need_cmd ssh-keygen
 ssh-keygen -q -t ed25519 -N '' -C 'al10-base-validate' -f "$validation_dir/private_key"
+: >"$validation_dir/build-info"
+
 "$PACKER_BIN" validate \
   -var "base_image_path=/nonexistent/base.qcow2" \
   -var "base_image_checksum=sha256:0000000000000000000000000000000000000000000000000000000000000000" \
@@ -28,5 +30,6 @@ ssh-keygen -q -t ed25519 -N '' -C 'al10-base-validate' -f "$validation_dir/priva
   -var "ssh_public_key=$(cat "$validation_dir/private_key.pub")" \
   -var "ssh_private_key_file=$validation_dir/private_key" \
   -var "console_log_path=$validation_dir/console.log" \
+  -var "build_info_file=$validation_dir/build-info" \
   -var "output_directory=$validation_dir/output" \
   packer

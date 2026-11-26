@@ -108,6 +108,16 @@ rm -f "$build_key" "${build_key}.pub"
 ssh-keygen -q -t ed25519 -N '' -C 'al10-base-build' -f "$build_key"
 chmod 600 "$build_key"
 
+build_info="$BUILD_DIR/build-info"
+cat >"$build_info" <<EOF
+IMAGE_VERSION=${IMAGE_VERSION}
+ALMA_CLOUD_IMAGE_URL=${ALMA_CLOUD_IMAGE_URL}
+ALMA_CLOUD_IMAGE_SHA256=${ALMA_CLOUD_IMAGE_SHA256}
+BUILD_DATE=${BUILD_DATE}
+BUILD_GIT_SHA=${BUILD_GIT_SHA}
+EOF
+chmod 0644 "$build_info"
+
 packer_vars=(
   -var "base_image_path=file://$work_image"
   -var "base_image_checksum=sha256:$work_sha256"
@@ -120,6 +130,7 @@ packer_vars=(
   -var "ssh_public_key=$(cat "${build_key}.pub")"
   -var "ssh_private_key_file=$build_key"
   -var "console_log_path=$BUILD_DIR/console.log"
+  -var "build_info_file=$build_info"
   -var "accelerator=$QEMU_ACCEL"
   -var "cpu_model=$QEMU_CPU"
 )

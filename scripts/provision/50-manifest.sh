@@ -3,6 +3,9 @@ set -euxo pipefail
 
 export PATH=/usr/sbin:/usr/bin:/sbin:/bin
 
+# shellcheck source=/dev/null
+source /tmp/al10-base-build-info
+
 : "${IMAGE_VERSION:?IMAGE_VERSION is required}"
 : "${ALMA_CLOUD_IMAGE_URL:?ALMA_CLOUD_IMAGE_URL is required}"
 : "${ALMA_CLOUD_IMAGE_SHA256:?ALMA_CLOUD_IMAGE_SHA256 is required}"

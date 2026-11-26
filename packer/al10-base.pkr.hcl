@@ -83,6 +83,11 @@ variable "console_log_path" {
   description = "Guest serial console log path."
 }
 
+variable "build_info_file" {
+  type        = string
+  description = "Local file with non-secret build metadata uploaded to the guest."
+}
+
 variable "build_hostname" {
   type        = string
   default     = "al10-base-build"
@@ -179,6 +184,11 @@ source "qemu" "al10" {
 
 build {
   sources = ["source.qemu.al10"]
+
+  provisioner "file" {
+    source      = var.build_info_file
+    destination = "/tmp/al10-base-build-info"
+  }
 
   provisioner "shell" {
     execute_command  = "sudo -E bash -euxo pipefail '{{.Path}}'"
